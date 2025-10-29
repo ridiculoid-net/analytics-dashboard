@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Time Distribution Analytics — Dynamic Dashboard</title>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;700&family=Montserrat:wght@300;500;700&display=swap" rel="stylesheet">
+
+  <!-- Chart.js + DataLabels -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+
+  <!-- html2canvas + jsPDF for export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #fbf6f0;
+      --fg: #2b2b2b;
+      --muted: #6b6b6b;
+      --card-bg: #fff;
+      --accent-yellow: #ffd88a;
+      --accent-green: #bfe9c9;
+      --accent-blue: #d8eef6;
+      --accent-orange: #f6ddc6;
+      --highlight: #e85a4a;
+      --shadow: rgba(0,0,0,0.05);
+    }
+
+    body.dark {
+      --bg: #1e1f22;
+      --fg: #e4e4e4;
+      --muted: #a3a3a3;
+      --card-bg: #2a2b2e;
+      --shadow: rgba(255,255,255,0.05);
+      --accent-yellow: #e0b950;
+      --accent-green: #4a9d7d;
+      --accent-blue: #5ea4c2;
+      --accent-orange: #d48b5b;
+      --highlight: #f07a67;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      font-family: 'Montserrat', sans-serif;
+      color: var(--fg);
+      transition: background 0.4s, color 0.4s;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 28px auto;
+      padding: 28px;
+      background: var(--card-bg);
+      border-radius: 14px;
+      box-shadow: 0 4px 18px var(--shadow);
+      transition: background 0.4s, box-shadow 0.4s;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    .title {
+      font-family: 'Oswald', sans-serif;
+      font-weight: 700;
+      letter-spacing: 1px;
+      font-size: clamp(28px, 6vw, 50px);
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    /* Buttons bar */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      background: var(--highlight);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.2s;
+    }
+    .btn:hover { background: #cf4a3c; transform: translateY(-2px); }
+
+    /* Theme toggle button */
+    .theme-toggle {
+      background: var(--accent-blue);
+      color: #000;
+    }
+    body.dark .theme-toggle {
+      background: #444;
+      color: #fff;
+    }
+
+    /* Metric cards */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 30px;
+    }
+
+    .card {
+      padding: 16px;
+      border-radius: 10px;
+      text-align: center;
+      color: #222;
+      box-shadow: 0 2px 5px var(--shadow);
+      transition: transform 0.2s, background 0.3s, color 0.3s;
+    }
+    .card:hover { transform: translateY(-4px); }
+
+    body.dark .card { color: var(--fg); }
+
+    .yellow { background: var(--accent-yellow); }
+    .green { background: var(--accent-green); }
+    .blue { background: var(--accent-blue); }
+    .orange { background: var(--accent-orange); }
+
+    .label { font-weight: 700; font-size: 12px; margin-bottom: 6px; }
+    .value { font-weight: 800; font-size: 20px; }
+
+    /* Chart grids */
+    .grid { display: grid; gap: 24px; }
+    .grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+
+    .section {
+      background: var(--card-bg);
+      padding: 16px;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px var(--shadow);
+      transition: background 0.4s;
+    }
+
+    h3 {
+      font-family: 'Oswald', sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      margin: 0 0 12px;
+      color: var(--fg);
+    }
+
+    /* Benchmarks */
+    .bench-item {
+      display: flex;
+      justify-content: space-between;
+      background: var(--bg);
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 10px;
+    }
+
+    body.dark .bench-item { border-color: #444; }
+
+    .badge {
+      padding: 4px 10px;
+      border-radius: 6px;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .red { background: #e4573a; }
+    .gray { background: #6b6b6b; }
+    .teal { background: #176b86; }
+
+    .big-total {
+      text-align: center;
+      font-weight: 800;
+      font-size: clamp(18px, 3vw, 28px);
+      margin-top: 20px;
+      color: var(--fg);
+    }
+  </style>
+</head>
+<body>
+<div class="container" id="dashboard">
+
+  <header>
+    <h1 class="title">TIME DISTRIBUTION ANALYTICS</h1>
+    <div class="subtitle">13,215 Hours Over 5 Years &amp; 1 Month</div>
+  </header>
+
+  <div class="top-bar">
+    <div>
+      <button class="btn" id="exportImage">📸 Export as Image</button>
+      <button class="btn" id="exportPDF">📄 Export as PDF</button>
+    </div>
+    <button class="btn theme-toggle" id="toggleTheme">🌙 Toggle Dark Mode</button>
+  </div>
+
+  <div class="metrics">
+    <div class="card yellow"><div class="label">TOTAL HOURS LOGGED</div><div class="value">13,215 hrs</div></div>
+    <div class="card green"><div class="label">AVERAGE PER YEAR</div><div class="value">2,599 hrs</div></div>
+    <div class="card blue"><div class="label">AVERAGE PER MONTH</div><div class="value">216.6 hrs</div></div>
+    <div class="card orange"><div class="label">AVERAGE PER WEEK</div><div class="value">50.3 hrs</div></div>
+    <div class="card" style="background:#ffe8e5;"><div class="label">% OF 24-HOUR DAY</div><div class="value">29.5%</div></div>
+  </div>
+
+  <div class="grid grid-2">
+    <div class="section"><h3>YEARLY DISTRIBUTION</h3><canvas id="yearlyChart" height="250"></canvas></div>
+    <div class="section"><h3>CUMULATIVE GROWTH TREND</h3><canvas id="cumulativeChart" height="250"></canvas></div>
+  </div>
+
+  <div class="grid grid-2" style="margin-top:24px;">
+    <div class="section"><h3>TIME UTILIZATION</h3><canvas id="utilChart" height="260"></canvas></div>
+    <div class="section">
+      <h3>BENCHMARKS COMPARISON</h3>
+      <div class="bench-item"><div><strong>Full-time 5 years</strong><br><span style="color:gray;">2,000 hrs/year</span></div><span class="badge red">+32% higher</span></div>
+      <div class="bench-item"><div><strong>10,000 Hour Mastery Rule</strong><br><span style="color:gray;">Benchmark</span></div><span class="badge gray">Surpassed</span></div>
+      <div class="bench-item"><div><strong>Graduate Study</strong><br><span style="color:gray;">~500 hrs/year</span></div><span class="badge teal">x5 higher</span></div>
+    </div>
+  </div>
+
+  <div class="big-total">13,215 Hours Over 5 Years &amp; 1 Month</div>
+</div>
+
+<script>
+Chart.register(ChartDataLabels);
+
+const years = ['Year 1', 'Year 2', 'Year 3', 'Year 4', 'Extra'];
+const yearly = [2689, 2569, 2589, 2589, 216];
+const cumulative = yearly.reduce((acc,v)=>{acc.push((acc.at(-1)||0)+v);return acc;},[]);
+const cumulativeLabels = ['1','2','3','4','5+1 Month'];
+
+let yearlyChart, cumulativeChart, utilChart;
+
+function createCharts(isDark){
+  const textColor = isDark ? '#e4e4e4' : '#222';
+  const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)';
+  const bg = isDark ? 'rgba(232,90,74,0.3)' : 'rgba(232,90,74,0.15)';
+  
+  yearlyChart = new Chart(document.getElementById('yearlyChart'), {
+    type:'bar',
+    data:{labels:years,datasets:[{data:yearly,backgroundColor:isDark?'#4bbf8f':'#2fa97a',borderRadius:8}]},
+    options:{
+      plugins:{legend:{display:false},datalabels:{color:'#fff',font:{weight:'bold'},anchor:'end',align:'start',offset:-8}},
+      scales:{x:{grid:{display:false},ticks:{color:textColor}},y:{beginAtZero:true,grid:{color:gridColor},ticks:{color:textColor}}},
+      animation:{duration:1000}
+    }
+  });
+
+  cumulativeChart = new Chart(document.getElementById('cumulativeChart'), {
+    type:'line',
+    data:{labels:cumulativeLabels,datasets:[{data:cumulative,borderColor:'#e85a4a',backgroundColor:bg,fill:true,tension:0.35,pointBackgroundColor:'#e85a4a',pointRadius:5}]},
+    options:{
+      plugins:{legend:{display:false}},
+      scales:{x:{grid:{display:false},ticks:{color:textColor}},y:{beginAtZero:true,grid:{color:gridColor},ticks:{color:textColor}}},
+      animation:{duration:1000}
+    }
+  });
+
+  utilChart = new Chart(document.getElementById('utilChart'), {
+    type:'pie',
+    data:{labels:['Activity (29.6%)','Sleep (33.3%)','Other Daily Life (37.1%)'],
+      datasets:[{data:[29.6,33.3,37.1],backgroundColor:isDark?['#4bbf8f','#e6c85d','#c58d3f']:['#2fa97a','#ffd24d','#e6a942'],hoverOffset:12}]},
+    options:{plugins:{legend:{position:'bottom',labels:{color:textColor}},datalabels:{color:'#fff',font:{weight:'bold'},formatter:v=>v+'%'}},animation:{duration:1000}}
+  });
+}
+
+function destroyCharts(){
+  [yearlyChart,cumulativeChart,utilChart].forEach(ch=>ch && ch.destroy());
+}
+
+function setTheme(dark){
+  document.body.classList.toggle('dark',dark);
+  localStorage.setItem('darkMode',dark?'1':'0');
+  destroyCharts();
+  createCharts(dark);
+}
+
+document.getElementById('toggleTheme').addEventListener('click',()=>{
+  const dark = !document.body.classList.contains('dark');
+  setTheme(dark);
+});
+
+document.getElementById('exportImage').addEventListener('click',async()=>{
+  const dashboard=document.getElementById('dashboard');
+  const canvas=await html2canvas(dashboard,{scale:2});
+  const link=document.createElement('a');
+  link.download='time_distribution_analytics.png';
+  link.href=canvas.toDataURL('image/png');
+  link.click();
+});
+
+document.getElementById('exportPDF').addEventListener('click',async()=>{
+  const dashboard=document.getElementById('dashboard');
+  const canvas=await html2canvas(dashboard,{scale:2});
+  const img=canvas.toDataURL('image/png');
+  const pdf=new jspdf.jsPDF({orientation:'p',unit:'pt',format:'a4'});
+  const w=pdf.internal.pageSize.getWidth();
+  const h=(canvas.height*w)/canvas.width;
+  pdf.addImage(img,'PNG',0,0,w,h);
+  pdf.save('time_distribution_analytics.pdf');
+});
+
+// Initialize theme
+const darkInit = localStorage.getItem('darkMode')==='1';
+setTheme(darkInit);
+</script>
+</body>
+</html>
